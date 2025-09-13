@@ -1,11 +1,11 @@
 fastapi
-uvicorn
+uvicorn[standard]
+yfinance
 twilio
-python-multipart
-python-dotenv
 openai
 phidata
-asyncio
+python-multipart
 apscheduler
-yfinance
+duckduckgo-search
+requests
 pydantic
