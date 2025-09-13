@@ -4,7 +4,7 @@ twilio
 python-multipart
 python-dotenv
 openai
-openai-agents
+phidata
 asyncio
 apscheduler
 yfinance

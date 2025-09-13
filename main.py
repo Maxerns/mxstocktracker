@@ -26,41 +26,52 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # This should be your public Twilio webh
 
 @app.post("/receive-message")
 async def receive_message(request: Request):
+  print("=== WEBHOOK RECEIVED ===")
+  print(f"Headers: {dict(request.headers)}")
+  
   signature = request.headers.get("X-Twilio-Signature", "")
   form = await request.form()
+  print(f"Form data: {dict(form)}")
+  
   validator = RequestValidator(TWILIO_AUTH_TOKEN)
   params = dict(form)
-  # Use WEBHOOK_URL for validation, not request.url
+  
   if not validator.validate(WEBHOOK_URL, params, signature):
+    print("❌ Signature validation failed!")
     return Response(content="Invalid signature", status_code=403)
 
   from_number = form.get("From", "")
   to_number = form.get("To", "")
   body = form.get("Body", "")
+  
+  print(f"From: {from_number}, To: {to_number}, Body: {body}")
 
   if (to_number != os.getenv("TWILIO_PHONE_NUMBER")):
+    print("❌ Wrong to_number")
     return Response(content="Unauthorized", status_code=403)
 
   if (from_number != TARGET_PHONE_NUMBER):
+    print("❌ Wrong from_number") 
     return Response(content="Unauthorized", status_code=403)
 
-  # Get the body content and escape it
-  
   safe_body = html.escape(body)
+  print(f"Processing message: {safe_body}")
 
-  Response(content="OK", status_code=200)
-
-  # Process the message
-  
-  response_text = await handle_incoming_message(safe_body)
-
-  # Send the response back to the user
-
-  print(f"Response: {response_text}")
-
-  send_sms(response_text)
-
-  return 
+  try:
+    # Process the message
+    response_text = await handle_incoming_message(safe_body)
+    print(f"Agent response: {response_text}")
+    
+    # Send SMS response
+    send_sms(response_text)
+    print("✅ SMS sent successfully")
+    
+    # IMPORTANT: Return proper response to Twilio
+    return Response(content="OK", status_code=200)
+    
+  except Exception as e:
+    print(f"❌ Error processing message: {e}")
+    return Response(content="Error processing message", status_code=500)
 
 # For testing purposes only
 

@@ -1,43 +1,73 @@
-
-from agents import function_tool
-
+from phi.tools import Toolkit
+from typing import List
 import yfinance as yf
-
 from pydantic import BaseModel
 import json
-
 from lib.stock_checker import StockPriceResponse, get_stock_price
 
-@function_tool
-async def add_stock_to_tracker(symbol: str):
-  with open("resources/tracker_list.json", "r") as f:
-    tracker_list = json.load(f)
+class StockTrackerTools(Toolkit):
+    def __init__(self):
+        super().__init__(name="stock_tracker_tools")
 
-  tracker_list.append(symbol)
+        self.register(self.add_stock_to_tracker)
+        self.register(self.remove_stock_from_tracker)
+        self.register(self.get_stock_tracker_list)
+        self.register(self.get_stock_price_info)
 
-  with open("resources/tracker_list.json", "w") as f:
-    json.dump(tracker_list, f)
+    def add_stock_to_tracker(self, symbol: str) -> str:
+        """Add a stock symbol to the tracker list"""
+        with open("resources/tracker_list.json", "r") as f:
+            tracker_list = json.load(f)
 
-@function_tool
-async def remove_stock_from_tracker(symbol: str):
-  with open("resources/tracker_list.json", "r") as f:
-    tracker_list = json.load(f)
+        if symbol not in tracker_list:
+            tracker_list.append(symbol.upper())
 
-  tracker_list.remove(symbol)
+            with open("resources/tracker_list.json", "w") as f:
+                json.dump(tracker_list, f)
+            
+            return f"Added {symbol.upper()} to tracker list"
+        else:
+            return f"{symbol.upper()} is already in tracker list"
 
-  with open("resources/tracker_list.json", "w") as f:
-    json.dump(tracker_list, f)
+    def remove_stock_from_tracker(self, symbol: str) -> str:
+        """Remove a stock symbol from the tracker list"""
+        with open("resources/tracker_list.json", "r") as f:
+            tracker_list = json.load(f)
 
+        if symbol.upper() in tracker_list:
+            tracker_list.remove(symbol.upper())
 
-@function_tool
-async def get_stock_tracker_list() -> list:
-  with open("resources/tracker_list.json", "r") as f:
-    print('getting tracker list')
-    tracker_list = json.load(f)
-    print(tracker_list)
+            with open("resources/tracker_list.json", "w") as f:
+                json.dump(tracker_list, f)
+            
+            return f"Removed {symbol.upper()} from tracker list"
+        else:
+            return f"{symbol.upper()} is not in tracker list"
 
-  return tracker_list
+    def get_stock_tracker_list(self) -> str:
+        """Get the current list of tracked stocks"""
+        with open("resources/tracker_list.json", "r") as f:
+            print('getting tracker list')
+            tracker_list = json.load(f)
+            print(tracker_list)
+        return f"Currently tracking: {', '.join(tracker_list)}"
 
-@function_tool
-async def get_stock_price_info(symbol: str) -> StockPriceResponse:
-  return get_stock_price(symbol)
+    def get_stock_price_info(self, symbol: str) -> str:
+        """Get stock price information for a symbol"""
+        try:
+            price_info = get_stock_price(symbol)
+            change_percent = ((price_info.current_price / price_info.previous_close) - 1) * 100
+            
+            return f"""Stock: {symbol.upper()}
+Current Price: ${price_info.current_price:.2f}
+Previous Close: ${price_info.previous_close:.2f}
+Change: {change_percent:+.2f}%"""
+        except Exception as e:
+            return f"Error getting stock price for {symbol}: {str(e)}"
+
+# Create instances of the tools for use in agents
+stock_tools = StockTrackerTools()
+get_stock_price_info = stock_tools.get_stock_price_info
+add_stock_to_tracker = stock_tools.add_stock_to_tracker
+remove_stock_from_tracker = stock_tools.remove_stock_from_tracker
+get_stock_tracker_list = stock_tools.get_stock_tracker_list
