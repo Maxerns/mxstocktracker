@@ -4,6 +4,7 @@ import yfinance as yf
 from pydantic import BaseModel
 import json
 from lib.stock_checker import StockPriceResponse, get_stock_price
+from lib.technical_analysis import analyze_stock_technical
 
 class StockTrackerTools(Toolkit):
     def __init__(self):
@@ -13,6 +14,7 @@ class StockTrackerTools(Toolkit):
         self.register(self.remove_stock_from_tracker)
         self.register(self.get_stock_tracker_list)
         self.register(self.get_stock_price_info)
+        self.register(self.get_technical_analysis)
 
     def add_stock_to_tracker(self, symbol: str) -> str:
         """Add a stock symbol to the tracker list"""
@@ -64,6 +66,26 @@ Previous Close: ${price_info.previous_close:.2f}
 Change: {change_percent:+.2f}%"""
         except Exception as e:
             return f"Error getting stock price for {symbol}: {str(e)}"
+
+    def get_technical_analysis(self, symbol: str) -> str:
+        """Get technical analysis alerts for a stock symbol"""
+        try:
+            alerts = analyze_stock_technical(symbol)
+            
+            if not alerts:
+                return f"No technical alerts found for {symbol.upper()}"
+            
+            # Sort by priority (highest first)
+            alerts.sort(key=lambda x: x.priority, reverse=True)
+            
+            result = f"Technical Analysis for {symbol.upper()}:\n"
+            for alert in alerts[:5]:  # Limit to top 5 alerts
+                result += f"• {alert.message} (Priority: {alert.priority})\n"
+            
+            return result
+            
+        except Exception as e:
+            return f"Error getting technical analysis for {symbol}: {str(e)}"
 
 # Create instances of the tools for use in agents
 stock_tools = StockTrackerTools()
