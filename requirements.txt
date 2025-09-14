@@ -9,3 +9,8 @@ apscheduler
 duckduckgo-search
 requests
 pydantic
+feedparser
+beautifulsoup4
+nltk
+textblob
+lxml[html_clean]

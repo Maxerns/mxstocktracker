@@ -7,6 +7,7 @@ from datetime import date
 from lib.stock_checker import get_stock_price
 from lib.technical_analysis import analyze_stock_technical
 from lib.sms import send_sms
+from lib.news_tracker import track_news
 
 def track_stocks():
   print("tracking stocks started...")
@@ -64,3 +65,7 @@ def track_stocks():
     # Save updated alert history (for technical alerts)
     with open("resources/alert_history.json", "w") as f:
       json.dump(alert_history, f)
+
+  # Check for news alerts after processing all stocks
+  print("Checking for news alerts...")
+  track_news()

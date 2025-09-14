@@ -21,6 +21,29 @@ class AlertType(Enum):
     DOJI_INDECISION = "DOJI_INDECISION"
     GAP_UP = "GAP_UP"
     GAP_DOWN = "GAP_DOWN"
+    # Price Action Patterns
+    HIGHER_HIGH = "HIGHER_HIGH"
+    LOWER_LOW = "LOWER_LOW"
+    DOUBLE_TOP = "DOUBLE_TOP"
+    DOUBLE_BOTTOM = "DOUBLE_BOTTOM"
+    HEAD_SHOULDERS = "HEAD_SHOULDERS"
+    INVERSE_HEAD_SHOULDERS = "INVERSE_HEAD_SHOULDERS"
+    ASCENDING_TRIANGLE = "ASCENDING_TRIANGLE"
+    DESCENDING_TRIANGLE = "DESCENDING_TRIANGLE"
+    SYMMETRICAL_TRIANGLE = "SYMMETRICAL_TRIANGLE"
+    BULLISH_FLAG = "BULLISH_FLAG"
+    BEARISH_FLAG = "BEARISH_FLAG"
+    WEDGE_RISING = "WEDGE_RISING"
+    WEDGE_FALLING = "WEDGE_FALLING"
+    ENGULFING_BULLISH = "ENGULFING_BULLISH"
+    ENGULFING_BEARISH = "ENGULFING_BEARISH"
+    INSIDE_BAR = "INSIDE_BAR"
+    OUTSIDE_BAR = "OUTSIDE_BAR"
+    PINBAR_BULLISH = "PINBAR_BULLISH"
+    PINBAR_BEARISH = "PINBAR_BEARISH"
+    BREAKOUT_CONSOLIDATION = "BREAKOUT_CONSOLIDATION"
+    FALSE_BREAKOUT = "FALSE_BREAKOUT"
+    TREND_REVERSAL = "TREND_REVERSAL"
 
 class TechnicalAlert(BaseModel):
     symbol: str
@@ -160,6 +183,533 @@ class TechnicalAnalyzer:
         support = recent_data['Low'].min()
         
         return support, resistance
+
+    def find_swing_highs_lows(self, window=5):
+        """Find swing highs and lows in price data"""
+        if self.data is None or len(self.data) < window * 2 + 1:
+            return [], []
+        
+        highs = self.data['High'].values
+        lows = self.data['Low'].values
+        
+        swing_highs = []
+        swing_lows = []
+        
+        for i in range(window, len(highs) - window):
+            # Check for swing high
+            is_swing_high = all(highs[i] >= highs[j] for j in range(i-window, i+window+1) if j != i)
+            if is_swing_high:
+                swing_highs.append((i, highs[i]))
+            
+            # Check for swing low
+            is_swing_low = all(lows[i] <= lows[j] for j in range(i-window, i+window+1) if j != i)
+            if is_swing_low:
+                swing_lows.append((i, lows[i]))
+        
+        return swing_highs, swing_lows
+
+    def analyze_trend_structure(self):
+        """Analyze trend structure using swing highs and lows"""
+        swing_highs, swing_lows = self.find_swing_highs_lows()
+        
+        if len(swing_highs) < 2 or len(swing_lows) < 2:
+            return "INSUFFICIENT_DATA"
+        
+        # Check for higher highs and higher lows (uptrend)
+        recent_highs = swing_highs[-2:]
+        recent_lows = swing_lows[-2:]
+        
+        higher_high = recent_highs[-1][1] > recent_highs[-2][1]
+        higher_low = recent_lows[-1][1] > recent_lows[-2][1]
+        
+        lower_high = recent_highs[-1][1] < recent_highs[-2][1]
+        lower_low = recent_lows[-1][1] < recent_lows[-2][1]
+        
+        if higher_high and higher_low:
+            return "UPTREND"
+        elif lower_high and lower_low:
+            return "DOWNTREND"
+        elif higher_high and lower_low:
+            return "RANGING_BULLISH"
+        elif lower_high and higher_low:
+            return "RANGING_BEARISH"
+        else:
+            return "SIDEWAYS"
+
+    def detect_double_top_bottom(self, tolerance=0.02):
+        """Detect double top and double bottom patterns"""
+        swing_highs, swing_lows = self.find_swing_highs_lows()
+        
+        patterns = []
+        
+        # Double Top
+        if len(swing_highs) >= 2:
+            recent_highs = swing_highs[-2:]
+            price_diff = abs(recent_highs[0][1] - recent_highs[1][1]) / recent_highs[0][1]
+            
+            if price_diff <= tolerance:
+                patterns.append("DOUBLE_TOP")
+        
+        # Double Bottom
+        if len(swing_lows) >= 2:
+            recent_lows = swing_lows[-2:]
+            price_diff = abs(recent_lows[0][1] - recent_lows[1][1]) / recent_lows[0][1]
+            
+            if price_diff <= tolerance:
+                patterns.append("DOUBLE_BOTTOM")
+        
+        return patterns
+
+    def detect_head_shoulders(self):
+        """Detect head and shoulders pattern"""
+        swing_highs, swing_lows = self.find_swing_highs_lows()
+        
+        if len(swing_highs) < 3:
+            return []
+        
+        patterns = []
+        recent_highs = swing_highs[-3:]
+        
+        # Head and Shoulders: Left shoulder < Head > Right shoulder
+        left_shoulder = recent_highs[0][1]
+        head = recent_highs[1][1]
+        right_shoulder = recent_highs[2][1]
+        
+        if (head > left_shoulder and head > right_shoulder and 
+            abs(left_shoulder - right_shoulder) / left_shoulder < 0.05):
+            patterns.append("HEAD_SHOULDERS")
+        
+        # Inverse Head and Shoulders
+        if len(swing_lows) >= 3:
+            recent_lows = swing_lows[-3:]
+            left_shoulder = recent_lows[0][1]
+            head = recent_lows[1][1]
+            right_shoulder = recent_lows[2][1]
+            
+            if (head < left_shoulder and head < right_shoulder and 
+                abs(left_shoulder - right_shoulder) / left_shoulder < 0.05):
+                patterns.append("INVERSE_HEAD_SHOULDERS")
+        
+        return patterns
+
+    def detect_triangles(self, min_touches=3):
+        """Detect triangle patterns"""
+        swing_highs, swing_lows = self.find_swing_highs_lows()
+        
+        if len(swing_highs) < min_touches or len(swing_lows) < min_touches:
+            return []
+        
+        patterns = []
+        recent_highs = swing_highs[-min_touches:]
+        recent_lows = swing_lows[-min_touches:]
+        
+        # Calculate trendlines
+        high_slope = (recent_highs[-1][1] - recent_highs[0][1]) / (recent_highs[-1][0] - recent_highs[0][0])
+        low_slope = (recent_lows[-1][1] - recent_lows[0][1]) / (recent_lows[-1][0] - recent_lows[0][0])
+        
+        # Ascending Triangle (horizontal resistance, rising support)
+        if abs(high_slope) < 0.001 and low_slope > 0:
+            patterns.append("ASCENDING_TRIANGLE")
+        
+        # Descending Triangle (falling resistance, horizontal support)
+        elif high_slope < 0 and abs(low_slope) < 0.001:
+            patterns.append("DESCENDING_TRIANGLE")
+        
+        # Symmetrical Triangle (converging trendlines)
+        elif high_slope < 0 and low_slope > 0:
+            patterns.append("SYMMETRICAL_TRIANGLE")
+        
+        return patterns
+
+    def detect_flags_pennants(self, trend_period=20):
+        """Detect flag and pennant patterns"""
+        if len(self.data) < trend_period + 10:
+            return []
+        
+        patterns = []
+        
+        # Get price trend before pattern
+        trend_data = self.data.iloc[-(trend_period + 10):-10]
+        consolidation_data = self.data.iloc[-10:]
+        
+        trend_change = (trend_data['Close'].iloc[-1] - trend_data['Close'].iloc[0]) / trend_data['Close'].iloc[0]
+        
+        # Check for consolidation after strong move
+        consolidation_range = (consolidation_data['High'].max() - consolidation_data['Low'].min()) / consolidation_data['Close'].mean()
+        
+        if abs(trend_change) > 0.05 and consolidation_range < 0.03:  # 5% trend move, 3% consolidation
+            if trend_change > 0:
+                patterns.append("BULLISH_FLAG")
+            else:
+                patterns.append("BEARISH_FLAG")
+        
+        return patterns
+
+    def detect_wedges(self, min_touches=4):
+        """Detect rising and falling wedge patterns"""
+        swing_highs, swing_lows = self.find_swing_highs_lows()
+        
+        if len(swing_highs) < min_touches or len(swing_lows) < min_touches:
+            return []
+        
+        patterns = []
+        recent_highs = swing_highs[-min_touches:]
+        recent_lows = swing_lows[-min_touches:]
+        
+        # Calculate slopes
+        high_slope = (recent_highs[-1][1] - recent_highs[0][1]) / (recent_highs[-1][0] - recent_highs[0][0])
+        low_slope = (recent_lows[-1][1] - recent_lows[0][1]) / (recent_lows[-1][0] - recent_lows[0][0])
+        
+        # Rising Wedge (both slopes positive, converging)
+        if high_slope > 0 and low_slope > 0 and high_slope < low_slope:
+            patterns.append("WEDGE_RISING")
+        
+        # Falling Wedge (both slopes negative, converging)
+        elif high_slope < 0 and low_slope < 0 and high_slope > low_slope:
+            patterns.append("WEDGE_FALLING")
+        
+        return patterns
+
+    def detect_engulfing_patterns(self):
+        """Detect bullish and bearish engulfing patterns"""
+        if len(self.data) < 2:
+            return []
+        
+        patterns = []
+        current = self.data.iloc[-1]
+        previous = self.data.iloc[-2]
+        
+        current_body = abs(current['Close'] - current['Open'])
+        previous_body = abs(previous['Close'] - previous['Open'])
+        
+        # Bullish Engulfing
+        if (previous['Close'] < previous['Open'] and  # Previous bearish
+            current['Close'] > current['Open'] and   # Current bullish
+            current['Open'] < previous['Close'] and  # Opens below previous close
+            current['Close'] > previous['Open'] and  # Closes above previous open
+            current_body > previous_body * 1.2):    # Significantly larger body
+            patterns.append("ENGULFING_BULLISH")
+        
+        # Bearish Engulfing
+        if (previous['Close'] > previous['Open'] and  # Previous bullish
+            current['Close'] < current['Open'] and   # Current bearish
+            current['Open'] > previous['Close'] and  # Opens above previous close
+            current['Close'] < previous['Open'] and  # Closes below previous open
+            current_body > previous_body * 1.2):    # Significantly larger body
+            patterns.append("ENGULFING_BEARISH")
+        
+        return patterns
+
+    def detect_inside_outside_bars(self):
+        """Detect inside and outside bar patterns"""
+        if len(self.data) < 2:
+            return []
+        
+        patterns = []
+        current = self.data.iloc[-1]
+        previous = self.data.iloc[-2]
+        
+        # Inside Bar (current bar contained within previous bar)
+        if (current['High'] <= previous['High'] and 
+            current['Low'] >= previous['Low']):
+            patterns.append("INSIDE_BAR")
+        
+        # Outside Bar (current bar engulfs previous bar)
+        if (current['High'] > previous['High'] and 
+            current['Low'] < previous['Low']):
+            patterns.append("OUTSIDE_BAR")
+        
+        return patterns
+
+    def detect_pin_bars(self, body_ratio=0.3, wick_ratio=2.0):
+        """Detect pin bar (hammer/shooting star) patterns"""
+        if len(self.data) < 1:
+            return []
+        
+        patterns = []
+        current = self.data.iloc[-1]
+        
+        high = current['High']
+        low = current['Low']
+        open_price = current['Open']
+        close = current['Close']
+        
+        body = abs(close - open_price)
+        total_range = high - low
+        upper_wick = high - max(open_price, close)
+        lower_wick = min(open_price, close) - low
+        
+        if total_range == 0:
+            return patterns
+        
+        # Bullish Pin Bar (long lower wick)
+        if (body / total_range <= body_ratio and 
+            lower_wick / body >= wick_ratio and 
+            upper_wick / total_range <= 0.1):
+            patterns.append("PINBAR_BULLISH")
+        
+        # Bearish Pin Bar (long upper wick)
+        if (body / total_range <= body_ratio and 
+            upper_wick / body >= wick_ratio and 
+            lower_wick / total_range <= 0.1):
+            patterns.append("PINBAR_BEARISH")
+        
+        return patterns
+
+    def detect_breakout_patterns(self, consolidation_period=20, breakout_threshold=0.02):
+        """Detect breakout from consolidation patterns"""
+        if len(self.data) < consolidation_period + 5:
+            return []
+        
+        patterns = []
+        
+        # Analyze consolidation period
+        consolidation_data = self.data.iloc[-(consolidation_period + 5):-5]
+        recent_data = self.data.iloc[-5:]
+        
+        # Calculate consolidation range
+        consolidation_high = consolidation_data['High'].max()
+        consolidation_low = consolidation_data['Low'].min()
+        consolidation_range = (consolidation_high - consolidation_low) / consolidation_data['Close'].mean()
+        
+        current_price = self.data['Close'].iloc[-1]
+        
+        # Check if price was in tight consolidation
+        if consolidation_range < 0.05:  # Less than 5% range
+            # Check for breakout
+            if current_price > consolidation_high * (1 + breakout_threshold):
+                patterns.append("BREAKOUT_CONSOLIDATION")
+            elif current_price < consolidation_low * (1 - breakout_threshold):
+                patterns.append("BREAKDOWN_CONSOLIDATION")
+        
+        return patterns
+
+    def detect_false_breakouts(self, lookback_period=10):
+        """Detect false breakout patterns"""
+        if len(self.data) < lookback_period + 5:
+            return []
+        
+        patterns = []
+        
+        # Look for recent breakout that failed
+        recent_data = self.data.iloc[-lookback_period:]
+        current_price = self.data['Close'].iloc[-1]
+        
+        recent_high = recent_data['High'].max()
+        recent_low = recent_data['Low'].min()
+        
+        # Check if price broke above recent high but then fell back
+        if (recent_data['High'].iloc[-5:].max() > recent_high * 1.02 and  # Broke above
+            current_price < recent_high * 0.98):  # Fell back below
+            patterns.append("FALSE_BREAKOUT")
+        
+        return patterns
+
+    def detect_trend_reversals(self, ma_period=20):
+        """Detect potential trend reversal signals"""
+        if len(self.data) < ma_period + 10:
+            return []
+        
+        patterns = []
+        ma = self.data['Close'].rolling(window=ma_period).mean()
+        current_price = self.data['Close'].iloc[-1]
+        previous_ma = ma.iloc[-2]
+        current_ma = ma.iloc[-1]
+        
+        # Price crossing moving average
+        if (self.data['Close'].iloc[-2] < previous_ma and current_price > current_ma):
+            patterns.append("TREND_REVERSAL_BULLISH")
+        elif (self.data['Close'].iloc[-2] > previous_ma and current_price < current_ma):
+            patterns.append("TREND_REVERSAL_BEARISH")
+        
+        return patterns
+
+    def analyze_price_action(self) -> List[TechnicalAlert]:
+        """Comprehensive price action analysis"""
+        alerts = []
+        
+        if self.data is None:
+            return alerts
+        
+        current_price = self.data['Close'].iloc[-1]
+        
+        # Trend Structure Analysis
+        trend = self.analyze_trend_structure()
+        if trend == "UPTREND":
+            swing_highs, swing_lows = self.find_swing_highs_lows()
+            if len(swing_highs) >= 2:
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=AlertType.HIGHER_HIGH,
+                    message=f"Higher high confirmed - uptrend intact",
+                    priority=3,
+                    current_price=current_price
+               ))
+        elif trend == "DOWNTREND":
+            swing_highs, swing_lows = self.find_swing_highs_lows()
+            if len(swing_lows) >= 2:
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=AlertType.LOWER_LOW,
+                    message=f"Lower low confirmed - downtrend intact",
+                    priority=3,
+                    current_price=current_price
+                ))
+        
+        # Chart Pattern Detection
+        double_patterns = self.detect_double_top_bottom()
+        for pattern in double_patterns:
+            if pattern == "DOUBLE_TOP":
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=AlertType.DOUBLE_TOP,
+                    message=f"Double top pattern detected - bearish reversal signal",
+                    priority=4,
+                    current_price=current_price
+                ))
+            elif pattern == "DOUBLE_BOTTOM":
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=AlertType.DOUBLE_BOTTOM,
+                    message=f"Double bottom pattern detected - bullish reversal signal",
+                    priority=4,
+                    current_price=current_price
+                ))
+        
+        # Head and Shoulders
+        hs_patterns = self.detect_head_shoulders()
+        for pattern in hs_patterns:
+            if pattern == "HEAD_SHOULDERS":
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=AlertType.HEAD_SHOULDERS,
+                    message=f"Head and shoulders pattern - bearish reversal",
+                    priority=5,
+                    current_price=current_price
+                ))
+            elif pattern == "INVERSE_HEAD_SHOULDERS":
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=AlertType.INVERSE_HEAD_SHOULDERS,
+                    message=f"Inverse head and shoulders - bullish reversal",
+                    priority=5,
+                    current_price=current_price
+                ))
+        
+        # Triangle Patterns
+        triangle_patterns = self.detect_triangles()
+        for pattern in triangle_patterns:
+            alert_type = getattr(AlertType, pattern, None)
+            if alert_type:
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=alert_type,
+                    message=f"{pattern.replace('_', ' ').title()} pattern forming",
+                    priority=3,
+                    current_price=current_price
+                ))
+        
+        # Flag and Pennant Patterns
+        flag_patterns = self.detect_flags_pennants()
+        for pattern in flag_patterns:
+            alert_type = getattr(AlertType, pattern, None)
+            if alert_type:
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=alert_type,
+                    message=f"{pattern.replace('_', ' ').title()} pattern - continuation signal",
+                    priority=4,
+                    current_price=current_price
+                ))
+        
+        # Wedge Patterns
+        wedge_patterns = self.detect_wedges()
+        for pattern in wedge_patterns:
+            alert_type = getattr(AlertType, pattern, None)
+            if alert_type:
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=alert_type,
+                    message=f"{pattern.replace('_', ' ').title()} pattern detected",
+                    priority=4,
+                    current_price=current_price
+                ))
+        
+        # Engulfing Patterns
+        engulfing_patterns = self.detect_engulfing_patterns()
+        for pattern in engulfing_patterns:
+            alert_type = getattr(AlertType, pattern, None)
+            if alert_type:
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=alert_type,
+                    message=f"{pattern.replace('_', ' ').title()} pattern - strong reversal signal",
+                    priority=4,
+                    current_price=current_price
+                ))
+        
+        # Inside/Outside Bars
+        bar_patterns = self.detect_inside_outside_bars()
+        for pattern in bar_patterns:
+            alert_type = getattr(AlertType, pattern, None)
+            if alert_type:
+                priority = 3 if pattern == "INSIDE_BAR" else 4
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=alert_type,
+                    message=f"{pattern.replace('_', ' ').title()} pattern detected",
+                    priority=priority,
+                    current_price=current_price
+                ))
+        
+        # Pin Bars
+        pin_patterns = self.detect_pin_bars()
+        for pattern in pin_patterns:
+            alert_type = getattr(AlertType, pattern, None)
+            if alert_type:
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=alert_type,
+                    message=f"{pattern.replace('_', ' ').title()} - reversal signal",
+                    priority=4,
+                    current_price=current_price
+                ))
+        
+        # Breakout Patterns
+        breakout_patterns = self.detect_breakout_patterns()
+        for pattern in breakout_patterns:
+            if "BREAKOUT" in pattern:
+                alerts.append(TechnicalAlert(
+                    symbol=self.symbol,
+                    alert_type=AlertType.BREAKOUT_CONSOLIDATION,
+                    message=f"Breakout from consolidation detected",
+                    priority=4,
+                    current_price=current_price
+                ))
+        
+        # False Breakouts
+        false_breakouts = self.detect_false_breakouts()
+        if false_breakouts:
+            alerts.append(TechnicalAlert(
+                symbol=self.symbol,
+                alert_type=AlertType.FALSE_BREAKOUT,
+                message=f"False breakout detected - potential reversal",
+                priority=4,
+                current_price=current_price
+            ))
+        
+        # Trend Reversals
+        reversal_patterns = self.detect_trend_reversals()
+        if reversal_patterns:
+            alerts.append(TechnicalAlert(
+                symbol=self.symbol,
+                alert_type=AlertType.TREND_REVERSAL,
+                message=f"Trend reversal signal detected",
+                priority=4,
+                current_price=current_price
+            ))
+        
+        return alerts
 
     def analyze_all(self) -> List[TechnicalAlert]:
         """Run comprehensive technical analysis and return alerts"""
@@ -340,6 +890,10 @@ class TechnicalAnalyzer:
                     current_price=current_price,
                     indicator_value=gap_percent
                 ))
+
+        # Price Action Analysis
+        price_action_alerts = self.analyze_price_action()
+        alerts.extend(price_action_alerts)
 
         return alerts
 

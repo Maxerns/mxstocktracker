@@ -1,19 +1,20 @@
 from phi.agent import Agent
 from phi.model.openai import OpenAIChat
 from phi.tools.duckduckgo import DuckDuckGo
-from lib.tools import get_stock_price_info, add_stock_to_tracker, remove_stock_from_tracker, get_stock_tracker_list, stock_tools
+from lib.tools import get_stock_price_info, add_stock_to_tracker, remove_stock_from_tracker, get_stock_tracker_list, stock_tools, get_news_for_symbol
 from lib.sms import send_sms
 
 
 message_handler_agent = Agent(
   name="Message Handler Agent",
-  instructions="Handle incoming messages from the user and determine the appropriate actions to take. If a message is requesting edits to the tracker list, always retrieve the tracker list first using the 'get_stock_tracker_list' tool to double check for spelling and grammar errors. For technical analysis requests, use the get_technical_analysis tool. Respond to the user in a friendly manner.",
+  instructions="Handle incoming messages from the user and determine the appropriate actions to take. If a message is requesting edits to the tracker list, always retrieve the tracker list first using the 'get_stock_tracker_list' tool to double check for spelling and grammar errors. For technical analysis requests, use the get_technical_analysis tool. For news requests, use the get_news_for_symbol tool. Respond to the user in a friendly manner.",
   tools=[
     get_stock_price_info,
     add_stock_to_tracker,
     remove_stock_from_tracker,
     get_stock_tracker_list,
-    stock_tools.get_technical_analysis
+    stock_tools.get_technical_analysis,
+    get_news_for_symbol
   ],
   model=OpenAIChat(id="gpt-4o-mini"),
   show_tool_calls=True,

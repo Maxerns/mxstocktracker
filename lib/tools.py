@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import json
 from lib.stock_checker import StockPriceResponse, get_stock_price
 from lib.technical_analysis import analyze_stock_technical
+from lib.news_tracker import NewsTracker
 
 class StockTrackerTools(Toolkit):
     def __init__(self):
@@ -15,6 +16,7 @@ class StockTrackerTools(Toolkit):
         self.register(self.get_stock_tracker_list)
         self.register(self.get_stock_price_info)
         self.register(self.get_technical_analysis)
+        self.register(self.get_news_for_symbol)
 
     def add_stock_to_tracker(self, symbol: str) -> str:
         """Add a stock symbol to the tracker list"""
@@ -87,9 +89,18 @@ Change: {change_percent:+.2f}%"""
         except Exception as e:
             return f"Error getting technical analysis for {symbol}: {str(e)}"
 
+    def get_news_for_symbol(self, symbol: str) -> str:
+        """Get recent news for a specific stock symbol"""
+        try:
+            news_tracker = NewsTracker()
+            return news_tracker.get_news_summary_for_symbol(symbol)
+        except Exception as e:
+            return f"Error getting news for {symbol}: {str(e)}"
+
 # Create instances of the tools for use in agents
 stock_tools = StockTrackerTools()
 get_stock_price_info = stock_tools.get_stock_price_info
 add_stock_to_tracker = stock_tools.add_stock_to_tracker
 remove_stock_from_tracker = stock_tools.remove_stock_from_tracker
 get_stock_tracker_list = stock_tools.get_stock_tracker_list
+get_news_for_symbol = stock_tools.get_news_for_symbol
