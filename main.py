@@ -121,7 +121,7 @@ if __name__ == "__main__":
     # CRON Job for tracking stock prices
 
     scheduler = BackgroundScheduler()
-    scheduler.add_job(track_stocks, 'interval', hours=1)
+    scheduler.add_job(track_stocks, 'interval', minutes=15)
     scheduler.start()
 
     # Run with: uvicorn main:app --host 0.0.0.0 --port 8000 --reload

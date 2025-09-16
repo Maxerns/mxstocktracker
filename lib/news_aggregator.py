@@ -260,7 +260,7 @@ class NewsAggregator:
         unique_news = self.deduplicate_news(all_news)
         
         # Filter by relevance score (only high relevance news)
-        filtered_news = [news for news in unique_news if news.relevance_score >= 0.7]
+        filtered_news = [news for news in unique_news if news.relevance_score >= 0.5]
         
         # Sort by relevance score and recency
         filtered_news.sort(key=lambda x: (x.relevance_score, x.published), reverse=True)

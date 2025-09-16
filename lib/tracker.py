@@ -46,8 +46,8 @@ def track_stocks():
         send_sms(sms_message)
         print(f"Sent technical alert for {symbol}: {alert.alert_type.value}")
 
-    # If the stock price is 5% + or - from the previous close, run the research pipeline
-    if (stock_info.current_price > stock_info.previous_close * 1.01) or (stock_info.current_price < stock_info.previous_close * 0.99):
+    # If the stock price is 0.5% + or - from the previous close, run the research pipeline
+    if (stock_info.current_price > stock_info.previous_close * 1.005) or (stock_info.current_price < stock_info.previous_close * 0.995):
       # Check if we have already alerted the user today for price movement
 
       price_alert_key = f"PRICE_MOVE_{str(date.today())}"
